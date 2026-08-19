@@ -5,6 +5,29 @@ pipeline d'envoi et de la gestion des Sender ID vus dans le projet Node
 `fastermessage-api`, avec le même principe : **chaque client a ses propres
 sender IDs, jamais partagés avec les autres clients**.
 
+## Démarrage rapide
+
+Prérequis : Docker + Docker Compose.
+
+```bash
+git clone https://github.com/Block67/sms-gateway.git
+cd sms-gateway
+cp .env.example .env
+
+docker compose up -d --build
+docker compose exec api alembic upgrade head
+docker compose exec api python -m scripts.create_user admin@example.com --admin
+# -> note la clé API admin affichée, elle sert à approuver les senders et seed operators/pricing
+```
+
+L'API est disponible sur http://localhost:8000/docs — le worker d'envoi
+(service `worker`) tourne déjà en arrière-plan, aucune étape en plus.
+Pour un test de bout en bout (créer un client, un sender, envoyer un SMS),
+voir [Flux complet d'exemple](#flux-complet-dexemple) plus bas.
+
+Pour développer sur l'API en local (rechargement à chaud, sans rebuild
+Docker à chaque changement), voir [Développement local](#développement-local).
+
 ## Architecture
 
 ```
@@ -54,7 +77,9 @@ Sinon, l'envoi est refusé (`InvalidSenderId`). C'est cette contrainte
 `(owner_id, name)` qui garantit qu'un sender ID est bien la propriété
 exclusive d'un client, exactement comme demandé.
 
-## Démarrer en local
+## Développement local
+
+Prérequis : Python 3.13+, Docker + Docker Compose (pour Postgres/RabbitMQ).
 
 ```bash
 cp .env.example .env
@@ -128,11 +153,3 @@ curl -X POST http://localhost:8000/sms/send \
   le même pattern de module (`src/<feature>/{models,schemas,service,router}.py`).
 - **Logs** : `logging` standard (pas de fichier par compte) — pour éviter
   l'explosion de fichiers qu'on a nettoyée sur le projet Mongo.
-
-## Déploiement
-
-```bash
-docker compose up -d --build
-docker compose exec api alembic upgrade head
-docker compose exec api python -m scripts.create_user admin@example.com --admin
-```
