@@ -56,6 +56,18 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  dlr_worker:
+    build: .
+    container_name: sms_dlr_worker
+    restart: always
+    command: python -m src.queue.dlr_worker
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
 volumes:
   postgres_data:
     driver: local

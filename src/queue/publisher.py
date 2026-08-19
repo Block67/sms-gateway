@@ -17,16 +17,25 @@ async def get_channel() -> AbstractChannel:
         _connection = await aio_pika.connect_robust(queue_config.RABBITMQ_URL)
         _channel = await _connection.channel()
         await _channel.declare_queue(queue_config.RABBITMQ_SMS_QUEUE, durable=True)
+        await _channel.declare_queue(queue_config.RABBITMQ_DLR_QUEUE, durable=True)
 
     return _channel
 
 
-async def publish_send_task(payload: dict[str, Any]) -> None:
+async def _publish(payload: dict[str, Any], *, routing_key: str) -> None:
     channel = await get_channel()
     await channel.default_exchange.publish(
         aio_pika.Message(
             body=json.dumps(payload).encode(),
             delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
         ),
-        routing_key=queue_config.RABBITMQ_SMS_QUEUE,
+        routing_key=routing_key,
     )
+
+
+async def publish_send_task(payload: dict[str, Any]) -> None:
+    await _publish(payload, routing_key=queue_config.RABBITMQ_SMS_QUEUE)
+
+
+async def publish_dlr_forward_task(payload: dict[str, Any]) -> None:
+    await _publish(payload, routing_key=queue_config.RABBITMQ_DLR_QUEUE)

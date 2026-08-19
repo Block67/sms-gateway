@@ -22,8 +22,10 @@ Client  --X-API-Key-->  API FastAPI  --RabbitMQ-->  Worker  --HTTP-->  Gateway S
   implémentations — `LocalGateway` (simule un envoi, pour le dev) et
   `JasminGateway` (vrai appel HTTP vers une instance Jasmin). Bascule via
   `GATEWAY_PROVIDER=local|jasmin` dans `.env`.
-- **DLR** (`src/dlr/`) : reçoit les accusés de livraison de la gateway et
-  les répercute vers le `dlr_url` fourni par le client à l'envoi.
+- **DLR** (`src/dlr/`) : reçoit les accusés de livraison de la gateway,
+  met à jour le message, puis publie la transmission vers le `dlr_url` du
+  client sur une queue séparée (`dlr_worker`, process séparé) plutôt que de
+  bloquer la requête entrante — avec retry + backoff en cas d'échec.
 
 ## Modèle de données (PostgreSQL)
 
@@ -79,6 +81,7 @@ mis en queue partent réellement) :
 
 ```bash
 python -m src.queue.worker
+python -m src.queue.dlr_worker
 ```
 
 ## Flux complet d'exemple
