@@ -1,7 +1,7 @@
 import secrets
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.users.models import User
@@ -23,6 +23,21 @@ async def create_user(db: AsyncSession, email: str, is_test: bool = False) -> Us
     return user
 
 
-async def debit_balance(db: AsyncSession, user: User, amount: Decimal) -> None:
-    user.balance = (user.balance or Decimal(0)) - amount
+async def debit_balance(db: AsyncSession, user: User, amount: Decimal) -> bool:
+    """Atomic conditional debit: the balance check and the deduction happen
+    in a single UPDATE, so concurrent requests for the same user can't both
+    read the same starting balance and overdraw it (lost update)."""
+    result = await db.execute(
+        update(User)
+        .where(User.id == user.id, User.balance >= amount)
+        .values(balance=User.balance - amount)
+        .returning(User.balance)
+    )
+    new_balance = result.scalar_one_or_none()
+    if new_balance is None:
+        await db.rollback()
+        return False
+
+    user.balance = new_balance
     await db.commit()
+    return True

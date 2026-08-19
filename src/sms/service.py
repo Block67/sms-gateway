@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.gateway.factory import get_gateway
@@ -42,7 +40,7 @@ async def send_sms(db: AsyncSession, user: User, payload: SMSSendRequest) -> Mes
     pages = _count_pages(payload.text)
     total_price = price * pages
 
-    if total_price > (user.balance or Decimal(0)):
+    if not await user_service.debit_balance(db, user, total_price):
         raise InsufficientBalance
 
     message = await message_service.create_message(
@@ -56,8 +54,6 @@ async def send_sms(db: AsyncSession, user: User, payload: SMSSendRequest) -> Mes
         operator_id=operator.id,
         dlr_url=str(payload.dlr_url) if payload.dlr_url else None,
     )
-
-    await user_service.debit_balance(db, user, total_price)
 
     try:
         await publish_send_task({"message_id": str(message.id)})
